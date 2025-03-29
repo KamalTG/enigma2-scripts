@@ -28,7 +28,8 @@ log() {
 all_symlinks=true
 
 for source_dir in "${source_dirs[@]}"; do
-    if [ ! -L "$source_dir" ]; then
+    clean_source_dir="${source_dir%/}"  # Remove trailing slash if it exists
+    if [ ! -L "$clean_source_dir" ]; then
         all_symlinks=false
         break
     fi
@@ -159,6 +160,7 @@ move_to_usb() {
     local source_dir="$1"
     local target_dir="$2"
 
+    # Remove trailing slash if it exists
     source_dir="${source_dir%/}"
     target_dir="${target_dir%/}"
 
