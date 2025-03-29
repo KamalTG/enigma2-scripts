@@ -80,14 +80,18 @@ while true; do
 done
 
 # Stop necessary enigma
-log "Stopping enigma..."
 init 4
 log "Enigma stopped."
 
 # Unmount the selected device
 if mount | grep -q "$selected_fs"; then
     log "Unmounting $selected_fs..."
-    umount "$selected_fs" && log "$selected_fs unmounted successfully." || log "Error: Failed to unmount $selected_fs."
+    umount "$selected_fs"
+    if [[ $? -ne 0 ]]; then
+        log "Error: Failed to unmount $selected_fs. Exiting."
+        exit 1
+    fi
+    log "$selected_fs unmounted successfully."
 else
     log "$selected_fs is not mounted, skipping unmount."
 fi
@@ -102,14 +106,24 @@ fi
 
 # Format the device
 log "Formatting $selected_fs as ext4..."
-mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1 && log "Formatting completed successfully." || log "Error: Formatting failed."
+mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
+if [[ $? -ne 0 ]]; then
+    log "Error: Formatting failed. Exiting."
+    exit 1
+fi
+log "Formatting completed successfully."
 
 # Create mount point and mount the device
 log "Creating mount point: $selected_mount"
 mkdir -p "$selected_mount"
 
 log "Mounting $selected_fs to $selected_mount..."
-mount "$selected_fs" "$selected_mount" && log "Mount successful." || log "Error: Mount failed."
+mount "$selected_fs" "$selected_mount"
+if [[ $? -ne 0 ]]; then
+    log "Error: Mount failed. Exiting."
+    exit 1
+fi
+log "Mount successful."
 
 # Function to move directories to USB
 move_to_usb() {
@@ -161,9 +175,8 @@ for source_dir in "${source_dirs[@]}"; do
 done
 
 # Restart enigma
-log "Restarting enigma..."
 init 3
-log "Enigma restarted. Script completed."
+log "Enigma is restarting.."
 
 echo "=========================================="
 echo "Script completed at $(date)"
