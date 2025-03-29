@@ -1,5 +1,14 @@
 #!/bin/sh
 
+# Directories to move
+source_dirs=(
+    "/usr/lib/enigma2"
+    "/usr/share/enigma2"
+)
+for dir in /usr/lib/python*/; do # python libraries
+    source_dirs+=("$dir")
+done
+
 # Define log file
 LOG_FILE="$HOME/external_mover.log"
 
@@ -14,6 +23,21 @@ echo "=========================================="
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
 }
+
+# First check if all source directories are symlinks
+all_symlinks=true
+
+for source_dir in "${source_dirs[@]}"; do
+    if [ ! -L "$source_dir" ]; then
+        all_symlinks=false
+        break
+    fi
+done
+
+if [ "$all_symlinks" = true ]; then
+    echo "All source directories are symbolic links. Exiting script."
+    exit 0
+fi
 
 # Function to check if user provided the -y parameter
 is_auto_yes() {
@@ -96,23 +120,29 @@ fi
 # Confirm formatting (always ask user)
 echo "Are you sure you want to format $selected_fs? This will erase all data! (yes/no)"
 read confirm_format </dev/tty
-if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-    log "Formatting cancelled."
-    exit 1
+
+if [[ "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
+    # Format the device
+    log "Formatting $selected_fs as ext4..."
+    mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        log "Error: Formatting failed. Exiting."
+        exit 1
+    fi
+    log "Formatting completed successfully."
+else
+    # Check the filesystem type using blkid
+    current_fs=$(blkid -o value -s TYPE "$selected_fs")
+
+    if [[ "$current_fs" == "ext4" ]]; then
+        log "$selected_fs is already formatted as ext4. Proceeding..."
+    else
+        log "Drive is not formatted as ext4. Exiting."
+        exit 1
+    fi
 fi
 
-# Format the device
-log "Formatting $selected_fs as ext4..."
-mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
-if [ $? -ne 0 ]; then
-    log "Error: Formatting failed. Exiting."
-    exit 1
-fi
-log "Formatting completed successfully."
-
-# Remove then create mount point and mount the device
-log "Removing directory: $selected_mount"
-rm -rf "$selected_mount"
+# Create mount point and mount the device
 log "Creating mount point: $selected_mount"
 mkdir -p "$selected_mount"
 
@@ -159,15 +189,6 @@ move_to_usb() {
         rm -rf "$target_dir"
     fi
 }
-
-source_dirs=(
-    "/usr/lib/enigma2"
-    "/usr/share/enigma2"
-)
-
-for dir in /usr/lib/python*/; do
-    source_dirs+=("$dir")
-done
 
 for source_dir in "${source_dirs[@]}"; do
     target_dir="$selected_mount${source_dir}"
