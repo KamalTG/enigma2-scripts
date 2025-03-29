@@ -1,10 +1,7 @@
 #!/bin/sh
 
 # Define log file
-LOG_FILE="/var/log/external_mover.log"
-
-# Ensure log directory exists
-mkdir -p "$(dirname "$LOG_FILE")"
+LOG_FILE="$HOME/external_mover.log"
 
 # Redirect all output (stdout & stderr) to log file and display it on screen
 exec > >(tee -a "$LOG_FILE") 2>&1
