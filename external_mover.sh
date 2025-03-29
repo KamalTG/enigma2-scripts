@@ -130,20 +130,39 @@ move_to_usb() {
     local source_dir="$1"
     local target_dir="$2"
 
+    source_dir="${source_dir%/}"
+    target_dir="${target_dir%/}"
+
     if [[ ! -d "$source_dir" ]]; then
         log "Error: Source directory $source_dir does not exist. Skipping."
         return 1
+    fi
+
+    if [ -L "$source_dir" ]; then
+        log "$source_dir is already a symbolic link. Exiting function."
+        return  # Exit the function if it's a symbolic link
     fi
 
     mkdir -p "$target_dir"
     log "Copying $source_dir to $target_dir..."
     cp -r "$source_dir/"* "$target_dir/"
 
-    if diff -qr "$source_dir" "$target_dir" > /dev/null 2>&1; then
+    # Check if anything didn't copied successfully
+    diff -qr "$source_dir" "$target_dir" > /dev/null 2>&1
+
+    if [ $? -eq 0 ]; then
+        # If no differences, proceed with the move and symlink
         rm -rf "$source_dir"
         ln -s "$target_dir" "$source_dir"
-        log "Successfully moved and linked $source_dir to $target_dir."
+
+        # Test if the symbolic link was successfully created
+        if [ -L "$source_dir" ] && [ "$(readlink "$source_dir")" = "$target_dir" ]; then
+            log "Successfully moved and linked $source_dir to $target_dir."
+        else
+            log "Error: Failed to create symbolic link for $source_dir. Skipping."
+        fi
     else
+        # If there are differences, log an error and remove the target directory
         log "Error: Copy verification failed for $source_dir. Skipping."
         rm -rf "$target_dir"
     fi
