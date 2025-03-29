@@ -21,7 +21,7 @@ log() {
 # Function to check if user provided the -y parameter
 is_auto_yes() {
     for arg in "$@"; do
-        if [[ "$arg" == "-y" ]]; then
+        if [ "$arg" = "-y" ]; then
             return 0  # True if -y is found
         fi
     done
@@ -38,7 +38,7 @@ log "Checking available external devices..."
 mapfile -t filesystems < <(df -h | awk 'NR>1 && $1 ~ /^\/dev\// {print $1, $2, $NF}')
 
 # Check if any filesystems were found
-if [[ ${#filesystems[@]} -eq 0 ]]; then
+if [ ${#filesystems[@]} -eq 0 ]; then
     log "No external devices found. Exiting."
     exit 1
 fi
@@ -63,7 +63,7 @@ while true; do
     echo "Please enter the number of the filesystem you want to choose:"
     read choice </dev/tty
 
-    if [[ ! "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > ${#filesystems[@]})); then
+    if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#filesystems[@]} ]; then
         echo "Invalid choice. Please select a valid number."
         continue
     fi
@@ -72,7 +72,11 @@ while true; do
     selected_mount=$(echo "${filesystems[$((choice - 1))]}" | awk '{print $3}')
 
     echo "You selected: $selected_fs mounted on $selected_mount. Confirm? (y/n)"
-    [[ "$auto_yes" -eq 1 ]] || read confirm </dev/tty
+    if [ "$auto_yes" -ne 1 ]; then
+        read confirm </dev/tty
+    else
+        confirm="y"
+    fi
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         log "Selected filesystem: $selected_fs mounted on $selected_mount"
         break
@@ -87,7 +91,7 @@ log "Enigma stopped."
 if mount | grep -q "$selected_fs"; then
     log "Unmounting $selected_fs..."
     umount "$selected_fs"
-    if [[ $? -ne 0 ]]; then
+    if [ $? -ne 0 ]; then
         log "Error: Failed to unmount $selected_fs. Exiting."
         exit 1
     fi
@@ -98,7 +102,11 @@ fi
 
 # Confirm formatting
 echo "Are you sure you want to format $selected_fs? This will erase all data! (yes/no)"
-[[ "$auto_yes" -eq 1 ]] || read confirm_format </dev/tty
+if [ "$auto_yes" -ne 1 ]; then
+    read confirm_format </dev/tty
+else
+    confirm_format="yes"
+fi
 if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     log "Formatting cancelled."
     exit 1
@@ -107,7 +115,7 @@ fi
 # Format the device
 log "Formatting $selected_fs as ext4..."
 mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
-if [[ $? -ne 0 ]]; then
+if [ $? -ne 0 ]; then
     log "Error: Formatting failed. Exiting."
     exit 1
 fi
@@ -121,7 +129,7 @@ mkdir -p "$selected_mount"
 
 log "Mounting $selected_fs to $selected_mount..."
 mount "$selected_fs" "$selected_mount"
-if [[ $? -ne 0 ]]; then
+if [ $? -ne 0 ]; then
     log "Error: Mount failed. Exiting."
     exit 1
 fi
@@ -135,59 +143,51 @@ move_to_usb() {
     source_dir="${source_dir%/}"
     target_dir="${target_dir%/}"
 
-    if [[ ! -d "$source_dir" ]]; then
+    if [ ! -d "$source_dir" ]; then
         log "Error: Source directory $source_dir does not exist. Skipping."
         return 1
     fi
 
     if [ -L "$source_dir" ]; then
         log "$source_dir is already a symbolic link. Exiting function."
-        return  # Exit the function if it's a symbolic link
+        return
     fi
 
     mkdir -p "$target_dir"
     log "Copying $source_dir to $target_dir..."
     cp -r "$source_dir/"* "$target_dir/"
 
-    # Check if anything didn't copied successfully
-    diff -qr "$source_dir" "$target_dir" > /dev/null 2>&1
-
-    if [ $? -eq 0 ]; then
-        # If no differences, proceed with the move and symlink
+    if diff -qr "$source_dir" "$target_dir" > /dev/null 2>&1; then
         rm -rf "$source_dir"
         ln -s "$target_dir" "$source_dir"
-
-        # Test if the symbolic link was successfully created
         if [ -L "$source_dir" ] && [ "$(readlink "$source_dir")" = "$target_dir" ]; then
             log "Successfully moved and linked $source_dir to $target_dir."
         else
             log "Error: Failed to create symbolic link for $source_dir. Skipping."
         fi
     else
-        # If there are differences, log an error and remove the target directory
         log "Error: Copy verification failed for $source_dir. Skipping."
         rm -rf "$target_dir"
     fi
 }
 
-# List of directories to move
 source_dirs=(
     "/usr/lib/enigma2"
     "/usr/share/enigma2"
 )
 
-# Add any /usr/lib/python* directories
 for dir in /usr/lib/python*/; do
     source_dirs+=("$dir")
 done
 
-# Move directories
 for source_dir in "${source_dirs[@]}"; do
     target_dir="$selected_mount${source_dir}"
-    
     echo "Move $source_dir to $target_dir? (y/n)"
-    [[ "$auto_yes" -eq 1 ]] || read confirm_move </dev/tty
-
+    if [ "$auto_yes" -ne 1 ]; then
+        read confirm_move </dev/tty
+    else
+        confirm_move="y"
+    fi
     if [[ "$confirm_move" =~ ^[Yy]$ ]]; then
         move_to_usb "$source_dir" "$target_dir"
     else
@@ -195,7 +195,6 @@ for source_dir in "${source_dirs[@]}"; do
     fi
 done
 
-# Restart enigma
 init 3
 log "Enigma is restarting..."
 
