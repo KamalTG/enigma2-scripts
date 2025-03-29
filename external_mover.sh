@@ -79,7 +79,8 @@ if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     echo "Formatting cancelled."
     exit 1
 fi
-mkfs.ext4 -F "$selected_fs"
+echo "Formatting.."
+mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
 echo "$selected_fs has been formatted as ext4."
 
 # Create mount point and mount the device
