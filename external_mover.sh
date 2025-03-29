@@ -1,8 +1,25 @@
 #!/bin/sh
 
+# Define log file
+LOG_FILE="/var/log/external_mover.log"
+
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOG_FILE")"
+
+# Redirect all output (stdout & stderr) to log file and display it on screen
+exec > >(tee -a "$LOG_FILE") 2>&1
+
+echo "=========================================="
+echo "Script started at $(date)"
+echo "=========================================="
+
+# Function to log messages with timestamps
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1"
+}
+
 # Function to check if user provided the -y parameter
 is_auto_yes() {
-    # Check if -y flag is passed to the script
     for arg in "$@"; do
         if [[ "$arg" == "-y" ]]; then
             return 0  # True if -y is found
@@ -15,16 +32,18 @@ is_auto_yes() {
 auto_yes=0
 is_auto_yes "$@" && auto_yes=1
 
-# Get filesystem details (Filesystem, Size, Mounted On) for /dev/ devices, skipping the header
+log "Checking available external devices..."
+
+# Get filesystem details (Filesystem, Size, Mounted On) for /dev/ devices
 mapfile -t filesystems < <(df -h | awk 'NR>1 && $1 ~ /^\/dev\// {print $1, $2, $NF}')
 
 # Check if any filesystems were found
 if [[ ${#filesystems[@]} -eq 0 ]]; then
-    echo "No external devices found."
+    log "No external devices found. Exiting."
     exit 1
 fi
 
-# Display the list with a header
+# Display filesystem list
 echo "-------------------------------------------------"
 printf "%-5s %-20s %-10s %s\n" "No." "Filesystem" "Size" "Mounted On"
 echo "-------------------------------------------------"
@@ -39,123 +58,113 @@ for fs in "${filesystems[@]}"; do
 done
 echo "-------------------------------------------------"
 
-# Loop until the user confirms their choice
+# Ask user to select a filesystem
 while true; do
     echo "Please enter the number of the filesystem you want to choose:"
-    read choice
+    read choice </dev/tty
 
-    # Validate the input (check if it's a valid number)
     if [[ ! "$choice" =~ ^[0-9]+$ ]] || ((choice < 1 || choice > ${#filesystems[@]})); then
         echo "Invalid choice. Please select a valid number."
         continue
     fi
 
-    # Extract the chosen filesystem device and mount point
     selected_fs=$(echo "${filesystems[$((choice - 1))]}" | awk '{print $1}')
     selected_mount=$(echo "${filesystems[$((choice - 1))]}" | awk '{print $3}')
 
-    # Ask for confirmation
     echo "You selected: $selected_fs mounted on $selected_mount. Confirm? (y/n)"
-    [[ "$auto_yes" -eq 1 ]] || read confirm
+    [[ "$auto_yes" -eq 1 ]] || read confirm </dev/tty
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
+        log "Selected filesystem: $selected_fs mounted on $selected_mount"
         break
     fi
 done
 
-# Final confirmation
-echo "You selected: $selected_fs mounted on $selected_mount"
-
-# Stop the necessary services
+# Stop necessary enigma
+log "Stopping enigma..."
 init 4
-echo "The device has been stopped gracefully"
+log "Enigma stopped."
 
-# Unmount the device if it's mounted
-umount $selected_fs
+# Unmount the selected device
+if mount | grep -q "$selected_fs"; then
+    log "Unmounting $selected_fs..."
+    umount "$selected_fs" && log "$selected_fs unmounted successfully." || log "Error: Failed to unmount $selected_fs."
+else
+    log "$selected_fs is not mounted, skipping unmount."
+fi
 
-# Format the device
+# Confirm formatting
 echo "Are you sure you want to format $selected_fs? This will erase all data! (yes/no)"
-read confirm_format
+[[ "$auto_yes" -eq 1 ]] || read confirm_format </dev/tty
 if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
-    echo "Formatting cancelled."
+    log "Formatting cancelled."
     exit 1
 fi
-echo "Formatting.."
-mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
-echo "$selected_fs has been formatted as ext4."
+
+# Format the device
+log "Formatting $selected_fs as ext4..."
+mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1 && log "Formatting completed successfully." || log "Error: Formatting failed."
 
 # Create mount point and mount the device
-mkdir -p $selected_mount
-mount $selected_fs $selected_mount
+log "Creating mount point: $selected_mount"
+mkdir -p "$selected_mount"
 
-# Function to move directory to USB
+log "Mounting $selected_fs to $selected_mount..."
+mount "$selected_fs" "$selected_mount" && log "Mount successful." || log "Error: Mount failed."
+
+# Function to move directories to USB
 move_to_usb() {
     local source_dir="$1"
     local target_dir="$2"
 
-    # Check if the source directory exists
     if [[ ! -d "$source_dir" ]]; then
-        echo "Error: Source directory $source_dir does not exist. Operation canceled."
+        log "Error: Source directory $source_dir does not exist. Skipping."
         return 1
     fi
 
-    # Create the target directory on the selected mount if it doesn't exist
     mkdir -p "$target_dir"
-    
-    # Copy the contents of the source directory to the target directory
+    log "Copying $source_dir to $target_dir..."
     cp -r "$source_dir/"* "$target_dir/"
-    
-    # Run diff -qr to compare the source and target directories
-    diff_output=$(diff -qr "$source_dir" "$target_dir")
-    
-    # If diff shows any differences, cancel the deletion and remove copied files
-    if [[ -n "$diff_output" ]]; then
-        echo "Warning: Some files were not copied correctly."
-        echo "$diff_output"
-        echo "Aborting deletion of $source_dir and removing copied files."
 
-        # Remove the entire target directory (not just contents)
+    if diff -qr "$source_dir" "$target_dir" > /dev/null 2>&1; then
+        rm -rf "$source_dir"
+        ln -s "$target_dir" "$source_dir"
+        log "Successfully moved and linked $source_dir to $target_dir."
+    else
+        log "Error: Copy verification failed for $source_dir. Skipping deletion."
         rm -rf "$target_dir"
-        return 1
     fi
-    
-    # Remove the original source directory
-    rm -rf "$source_dir"
-    
-    # Create a symbolic link to the target directory
-    ln -s "$target_dir" "$source_dir"
-    
-    echo "$source_dir has been moved to $selected_mount and linked successfully."
 }
 
-# Create an array of source directories to move
+# List of directories to move
 source_dirs=(
     "/usr/lib/enigma2"
     "/usr/share/enigma2"
 )
 
-# Add any /usr/lib/python* directories to the source_dirs array
+# Add any /usr/lib/python* directories
 for dir in /usr/lib/python*/; do
     source_dirs+=("$dir")
 done
 
-# Loop through each source directory and ask for user confirmation before moving
+# Move directories
 for source_dir in "${source_dirs[@]}"; do
-    # Set the target directory to match the source directory structure
     target_dir="$selected_mount${source_dir}"
-
-    # Ask the user for confirmation
-    echo "You are about to move $source_dir to $target_dir. Do you want to continue? (y/n)"
-    [[ "$auto_yes" -eq 1 ]] || read confirm_move
     
-    # If user confirms, proceed with the move
+    echo "Move $source_dir to $target_dir? (y/n)"
+    [[ "$auto_yes" -eq 1 ]] || read confirm_move </dev/tty
+
     if [[ "$confirm_move" =~ ^[Yy]$ ]]; then
-        # Call the move_to_usb function for each directory
         move_to_usb "$source_dir" "$target_dir"
     else
-        echo "Skipping $source_dir."
+        log "Skipping $source_dir."
     fi
 done
 
-# Restart the necessary services
+# Restart enigma
+log "Restarting enigma..."
 init 3
-echo "The device has been started again.."
+log "Enigma restarted. Script completed."
+
+echo "=========================================="
+echo "Script completed at $(date)"
+echo "=========================================="
