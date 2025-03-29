@@ -10,7 +10,7 @@ mkdir -p "$(dirname "$LOG_FILE")"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 echo "=========================================="
-echo "Script started at $(date)"
+    echo "Script started at $(date)"
 echo "=========================================="
 
 # Function to log messages with timestamps
@@ -72,11 +72,7 @@ while true; do
     selected_mount=$(echo "${filesystems[$((choice - 1))]}" | awk '{print $3}')
 
     echo "You selected: $selected_fs mounted on $selected_mount. Confirm? (y/n)"
-    if [ "$auto_yes" -ne 1 ]; then
-        read confirm </dev/tty
-    else
-        confirm="y"
-    fi
+    read confirm </dev/tty
     if [[ "$confirm" =~ ^[Yy]$ ]]; then
         log "Selected filesystem: $selected_fs mounted on $selected_mount"
         break
@@ -100,13 +96,9 @@ else
     log "$selected_fs is not mounted, skipping unmount."
 fi
 
-# Confirm formatting
+# Confirm formatting (always ask user)
 echo "Are you sure you want to format $selected_fs? This will erase all data! (yes/no)"
-if [ "$auto_yes" -ne 1 ]; then
-    read confirm_format </dev/tty
-else
-    confirm_format="yes"
-fi
+read confirm_format </dev/tty
 if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     log "Formatting cancelled."
     exit 1
@@ -183,11 +175,7 @@ done
 for source_dir in "${source_dirs[@]}"; do
     target_dir="$selected_mount${source_dir}"
     echo "Move $source_dir to $target_dir? (y/n)"
-    if [ "$auto_yes" -ne 1 ]; then
-        read confirm_move </dev/tty
-    else
-        confirm_move="y"
-    fi
+    read confirm_move </dev/tty
     if [[ "$confirm_move" =~ ^[Yy]$ ]]; then
         move_to_usb "$source_dir" "$target_dir"
     else
