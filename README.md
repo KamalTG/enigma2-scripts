@@ -1,4 +1,4 @@
-﻿# enigma2_external_mover
+﻿# `external_mover.sh`
 
 ## Description:
 
