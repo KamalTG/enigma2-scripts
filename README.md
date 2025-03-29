@@ -6,24 +6,14 @@
 
 ## Usage:
 
-```bash
-# move to tmp dir
-cd /tmp
-
-# download the script
-wget -O external_mover.sh https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh
-```
-
 ### Without Auto-Confirmation (Interactive):
 
 ```bash
-# run it
-./external_mover.sh
+cd /tmp && wget -O external_mover.sh https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh && ./external_mover.sh
 ```
 
 ### With Auto-Confirmation (No Prompts):
 
 ```bash
-# run it
-./external_mover.sh -y
+cd /tmp && wget -O external_mover.sh https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh && ./external_mover.sh -y
 ```
