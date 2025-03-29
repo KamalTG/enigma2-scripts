@@ -6,13 +6,13 @@
 
 ## Usage:
 
-### Without Auto-Confirmation (Interactive):
+### Normal run:
 
 ```bash
 sh -c "$(wget -qO- https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh)"
 ```
 
-### With Auto-Confirmation (No Prompts):
+### Assume "yes" as answer to all prompts:
 
 ```bash
 sh -c "$(wget -qO- https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh)" -- -y
