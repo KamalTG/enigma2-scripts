@@ -79,7 +79,7 @@ while true; do
     fi
 done
 
-# Stop necessary enigma
+# Stop enigma
 init 4
 log "Enigma stopped."
 
@@ -144,7 +144,7 @@ move_to_usb() {
         ln -s "$target_dir" "$source_dir"
         log "Successfully moved and linked $source_dir to $target_dir."
     else
-        log "Error: Copy verification failed for $source_dir. Skipping deletion."
+        log "Error: Copy verification failed for $source_dir. Skipping."
         rm -rf "$target_dir"
     fi
 }
@@ -176,7 +176,7 @@ done
 
 # Restart enigma
 init 3
-log "Enigma is restarting.."
+log "Enigma is restarting..."
 
 echo "=========================================="
 echo "Script completed at $(date)"
