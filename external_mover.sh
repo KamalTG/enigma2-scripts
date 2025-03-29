@@ -113,7 +113,7 @@ if [[ $? -ne 0 ]]; then
 fi
 log "Formatting completed successfully."
 
-# Create mount point and mount the device
+# Remove then create mount point and mount the device
 log "Removing directory: $selected_mount"
 rm -rf "$selected_mount"
 log "Creating mount point: $selected_mount"
