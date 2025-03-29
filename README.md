@@ -9,11 +9,11 @@
 ### Without Auto-Confirmation (Interactive):
 
 ```bash
-cd /tmp && wget -O external_mover.sh https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh && sh external_mover.sh
+sh -c "$(wget -qO- https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh)"
 ```
 
 ### With Auto-Confirmation (No Prompts):
 
 ```bash
-cd /tmp && wget -O external_mover.sh https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh && sh external_mover.sh -y
+sh -c "$(wget -qO- https://raw.githubusercontent.com/Kamal-OS/enigma2-scripts/refs/heads/main/external_mover.sh)" -- -y
 ```
