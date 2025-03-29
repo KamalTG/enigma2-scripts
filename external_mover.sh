@@ -28,14 +28,13 @@ log() {
 all_symlinks=true
 
 for source_dir in "${source_dirs[@]}"; do
-    clean_source_dir="${source_dir%/}"  # Remove trailing slash if it exists
-    if [ ! -L "$clean_source_dir" ]; then
+    if [ ! -L "${source_dir%/}" ]; then
         all_symlinks=false
         break
     fi
 done
 
-if [ "$all_symlinks" = true ]; then
+if [[ "$all_symlinks" == "true" ]]; then
     echo "All source directories are symbolic links. Exiting script."
     exit 0
 fi
