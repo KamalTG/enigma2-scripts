@@ -74,7 +74,7 @@ umount $selected_fs
 
 # Format the device
 echo "Are you sure you want to format $selected_fs? This will erase all data! (yes/no)"
-[[ "$auto_yes" -eq 1 ]] || read confirm_format
+read confirm_format
 if [[ ! "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     echo "Formatting cancelled."
     exit 1
