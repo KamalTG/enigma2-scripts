@@ -132,7 +132,7 @@ if [[ "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     log "Formatting completed successfully."
 else
     # Check the filesystem type using blkid
-    current_fs=$(blkid -o value -s TYPE "$selected_fs")
+    current_fs=$(blkid "$selected_fs" | awk -F 'TYPE="' '{print $2}' | awk -F '"' '{print $1}')
 
     if [[ "$current_fs" == "ext4" ]]; then
         log "$selected_fs is already formatted as ext4. Proceeding..."
