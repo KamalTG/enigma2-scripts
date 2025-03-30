@@ -210,7 +210,7 @@ move_to_usb() {
 }
 
 for source_dir in "${source_dirs[@]}"; do
-    target_dir="$selected_mount${source_dir}"
+    target_dir="$selected_mount/external_mover${source_dir}"
 
     if [ -L "${source_dir%/}" ]; then
         log "$source_dir is already a symbolic link. Exiting function."
