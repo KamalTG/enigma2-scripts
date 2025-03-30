@@ -104,12 +104,32 @@ done
 init 4
 log "Enigma stopped."
 
+# Get things to its normal state
+recover() {
+    local selected_fs="$1"
+    local selected_mount="$2"
+
+    if [[ -n "$selected_fs" && -n "$selected_mount" ]]; then
+        log "Creating mount point: $selected_mount"
+        mkdir -p "$selected_mount"
+
+        log "Mounting $selected_fs to $selected_mount..."
+        mount "$selected_fs" "$selected_mount"
+    fi
+
+    init 3
+    log "Enigma is restarting..."
+
+    return 1
+}
+
 # Unmount the selected device
 if mount | grep -q "$selected_fs"; then
     log "Unmounting $selected_fs..."
     umount "$selected_fs"
     if [ $? -ne 0 ]; then
         log "Error: Failed to unmount $selected_fs. Exiting."
+        recover
         exit 1
     fi
     log "$selected_fs unmounted successfully."
@@ -127,6 +147,7 @@ if [[ "$confirm_format" =~ ^[Yy]([Ee][Ss])?$ ]]; then
     mkfs.ext4 -F "$selected_fs" > /dev/null 2>&1
     if [ $? -ne 0 ]; then
         log "Error: Formatting failed. Exiting."
+        recover "$selected_fs" "$selected_mount"
         exit 1
     fi
     log "Formatting completed successfully."
@@ -138,6 +159,7 @@ else
         log "$selected_fs is already formatted as ext4. Proceeding..."
     else
         log "Drive is not formatted as ext4. Exiting."
+        recover "$selected_fs" "$selected_mount"
         exit 1
     fi
 fi
@@ -150,6 +172,7 @@ log "Mounting $selected_fs to $selected_mount..."
 mount "$selected_fs" "$selected_mount"
 if [ $? -ne 0 ]; then
     log "Error: Mount failed. Exiting."
+    recover
     exit 1
 fi
 log "Mount successful."
@@ -166,11 +189,6 @@ move_to_usb() {
     if [ ! -d "$source_dir" ]; then
         log "Error: Source directory $source_dir does not exist. Skipping."
         return 1
-    fi
-
-    if [ -L "$source_dir" ]; then
-        log "$source_dir is already a symbolic link. Exiting function."
-        return
     fi
 
     mkdir -p "$target_dir"
@@ -193,6 +211,12 @@ move_to_usb() {
 
 for source_dir in "${source_dirs[@]}"; do
     target_dir="$selected_mount${source_dir}"
+
+    if [ -L "${source_dir%/}" ]; then
+        log "$source_dir is already a symbolic link. Exiting function."
+        continue
+    fi
+
     echo "Move $source_dir to $target_dir? (y/n)"
     read confirm_move </dev/tty
     if [[ "$confirm_move" =~ ^[Yy]$ ]]; then
