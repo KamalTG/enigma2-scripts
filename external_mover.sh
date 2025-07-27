@@ -2,7 +2,7 @@
 
 # Directories to move
 source_dirs=(
-    "/usr/lib/enigma2"
+    "/usr/lib/enigma2/python/Plugins/Extensions"
     "/usr/share/enigma2"
 )
 for dir in /usr/lib/python*/; do # python libraries
